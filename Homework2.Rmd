@@ -14,15 +14,18 @@ library(shiny)
 ```
 
 ```{r, message = FALSE}
+#read the data
 tuition <- read_csv("https://raw.githubusercontent.com/RZJing5/STAT-436/main/tuition_cost.csv")
 ```
 
 
 ```{r}
+#function to read the selected data
 reset_selection <- function(x, brush) {
   brushedPoints(x, brush, allRows = TRUE)$selected_
 }
 
+#function to print the scatter plot
 scatter <- function(x, selected_) {
   x %>%
     mutate(selected_ = selected_) %>%
@@ -32,8 +35,10 @@ scatter <- function(x, selected_) {
     scale_color_brewer(palette = "Set1")+
     labs(x = "Tuition for in-state residents in USD", y = "Tuition for out-of-state residents in USD")
 }
- 
+
+#function to print histogram plot
 histogram <- function(x, selected_) {
+  #Calculate the number of schools in each state
   sub_counts <- x %>%
     filter(selected_) %>%
     count(state_code)
@@ -41,7 +46,9 @@ histogram <- function(x, selected_) {
   x %>%
     count(state_code) %>%
     ggplot(aes(state_code, n)) +
+    #The back layer, histogram for all data
     geom_bar(stat = "identity", fill = "#d3d3d3", width = 1) +
+    #The back layer, histogram for selected data
     geom_bar(data = sub_counts, stat = "identity", width = 1) +
     scale_y_continuous(expand = c(0, 0)) +
     labs(x = "State", y = "Number of selected university in the state")

@@ -1,0 +1,74 @@
+---
+title: "Homework 2"
+author: "Ruizhen Jing"
+output: html_document
+---
+
+```{r, message = FALSE}
+knitr::opts_chunk$set(warnings = FALSE, message = FALSE)
+```
+
+```{r, message = FALSE}
+library(tidyverse)
+library(shiny)
+```
+
+```{r, message = FALSE}
+tuition <- read_csv("https://raw.githubusercontent.com/RZJing5/STAT-436/main/tuition_cost.csv")
+```
+
+
+```{r}
+reset_selection <- function(x, brush) {
+  brushedPoints(x, brush, allRows = TRUE)$selected_
+}
+
+scatter <- function(x, selected_) {
+  x %>%
+    mutate(selected_ = selected_) %>%
+    ggplot() +
+    geom_point(aes(in_state_tuition, out_of_state_tuition, col = degree_length, alpha = as.numeric(selected_)))+
+    facet_wrap(~type)+
+    scale_color_brewer(palette = "Set1")+
+    labs(x = "Tuition for in-state residents in USD", y = "Tuition for out-of-state residents in USD")
+}
+ 
+histogram <- function(x, selected_) {
+  sub_counts <- x %>%
+    filter(selected_) %>%
+    count(state_code)
+  
+  x %>%
+    count(state_code) %>%
+    ggplot(aes(state_code, n)) +
+    geom_bar(stat = "identity", fill = "#d3d3d3", width = 1) +
+    geom_bar(data = sub_counts, stat = "identity", width = 1) +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(x = "State", y = "Number of selected university in the state")
+}
+ 
+ui <- fluidPage(
+  fluidRow(
+    column(10, plotOutput("scatterplot", brush = "plot_brush"),
+    column(10, plotOutput("histogram", brush = brushOpts("plot_brush", direction = "x"))))
+  ),
+  dataTableOutput("table")
+)
+ 
+server <- function(input, output) {
+  selected <- reactiveVal(rep(TRUE, nrow(tuition)))
+  
+  observeEvent(
+    input$plot_brush,
+    selected(reset_selection(tuition, input$plot_brush))
+  )
+  
+  output$scatterplot <- renderPlot(scatter(tuition, selected()))
+  output$histogram <- renderPlot(histogram(tuition, selected()))
+  output$table <- renderDataTable(filter(tuition, selected()))
+}
+ 
+shinyApp(ui, server)
+```
+
+

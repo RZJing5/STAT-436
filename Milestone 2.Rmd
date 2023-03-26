@@ -1,6 +1,6 @@
 ---
-title: "Untitled"
-author: "Ruizhen Jing"
+title: "Milestone 2"
+author: "Group 11"
 output: html_document
 ---
 
@@ -8,25 +8,25 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r, message = FALSE}
 library(tidyverse)
 library(shiny)
 library(maps)
 ```
-```{r}
+```{r, message = FALSE}
 #read data set
-dataset <- read_csv("https://raw.githubusercontent.com/Star732/.csvFile/main/world_population.csv")
-names(dataset)[3] <- "region"
+population <- read_csv("https://raw.githubusercontent.com/Star732/.csvFile/main/world_population.csv")
+names(population)[3] <- "region"
 ```
 ```{r}
 # change colnames so that they could be used conveniently
-colnames(dataset) <- c("Rank", "CCA3", "region", "Capital", "Continent", "year_2022",
+colnames(population) <- c("Rank", "CCA3", "region", "Capital", "Continent", "year_2022",
                   "year_2020", "year_2015", "year_2010", "year_2000", "year_1990",
                   "year_1980", "year_1970", "Area_km2", "Density", "Growth_rate",
                   "World_Population_Percentage")
 
 # make a long dataset
-df1 <- dataset %>%
+population_long <- population %>%
   pivot_longer(cols = starts_with("year"), names_to = c("label", "Year"), 
                names_pattern = "(.*)_(.*)", values_to = "Population") %>%
   group_by(Year)%>%
@@ -39,51 +39,45 @@ world_map <- map_data("world")
 #merged_data <- world_map %>%
 #  merge(dataset, sort = FALSE, by = "region")
 #merged_data <- merged_data[order(merged_data$order), ]
-
-#
-plot_world_heatmap <- function(df_map) {
-  ggplot() +
-    geom_map(data = df_map, map = world_map, aes(fill = year_2022,
-                                                  map_id = region),
-             color = 'darkgray', size = 0.5) +
-    scale_fill_gradient2(low = ("white"), high = ("darkblue"))+
-    coord_map("rectangular", 0, xlim = c(-180, 180), ylim = c(-90, 90))
-  #ggplot(merged_data) +
-  #  geom_polygon(aes(long, lat, group = group, fill = y2022)) +
-  #  coord_map("mercator")
-}
-
 ```
 ```{r}
 ui <- fluidPage(
   titlePanel("Population Heatmap"),
   plotOutput("world_map", brush = "world_brush"),
-  selectInput("countries", "Country", choices = df1$region, multiple = TRUE),
-  checkboxGroupInput("years", "Year", choices = unique(df1$Year)),
+  selectInput("countries", "Country", choices = population_long$region, multiple = TRUE),
+  checkboxGroupInput("years", "Year", choices = unique(population_long$Year)),
   plotOutput("scatter"),
   plotOutput("area")
 )
 
 server <- function(input, output, session) {
   output$world_map <- renderPlot({
-    dataset %>%
-      plot_world_heatmap()
+    population %>%
+      ggplot() +
+      geom_map(map = world_map, aes(fill = year_2022, map_id = region),
+               color = 'darkgray', size = 0.5) +
+      scale_fill_gradient2(low = ("white"), high = ("darkblue"))+
+      coord_map("rectangular", 0, xlim = c(-180, 180), ylim = c(-90, 90))
+      #ggplot(merged_data) +
+      #  geom_polygon(aes(long, lat, group = group, fill = y2022)) +
+      #  coord_map("mercator")
   })
   
   output$scatter <- renderPlot({
-    df1 %>%
+    population_long %>%
       filter(region %in% input$countries & Year %in% input$years) %>%
-      ggplot() +
-      geom_point(aes(Year, region, size = log10(Population), alpha = Growth_rate), col = "blue") +
+      ggplot(aes(Year, region)) +
+      geom_point(aes(size = log10(Population), alpha = Growth_rate), col = "blue") +
       labs(x = "Year", y = "Country", size = "Population(log 10)", alpha = "Growth Rate") +
       theme_bw()
   })
 
+
   output$area <- renderPlot({
-    df1 %>%
+    population_long %>%
       filter(region %in% input$countries) %>%
-      ggplot() +
-      geom_area(aes(Year, World_Population_Percentage, group = CCA3, fill = CCA3), alpha = 0.8, col = "white") +
+      ggplot(aes(Year, World_Population_Percentage)) +
+      geom_area(aes(group = CCA3, fill = CCA3), alpha = 0.8, col = "white") +
       #ylim(0, 100)+
       labs(x = "Year", y= "Proportion(%)", fill = "3 Digit Country/Territories Code",
       title = "Proportion of national population in total world population") +
@@ -95,5 +89,4 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 ```
-
 

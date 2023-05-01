@@ -1,0 +1,94 @@
+---
+title: "Homework4"
+author: "Ruizhen Jing"
+output: html_document
+---
+
+```{r, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(warnings = FALSE, message = FALSE)
+library(tidyverse)
+library(ggrepel)
+library(tidymodels)
+library(tidytext)
+th <- theme_minimal() + 
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "#f7f7f7"),
+    panel.border = element_rect(fill = NA, color = "#0c0c0c"),
+    axis.text = element_text(size = 14),
+    axis.title = element_text(size = 16),
+    strip.text = element_text(size = 16),
+    legend.position = "bottom"
+  )
+theme_set(th)
+```
+
+Read Data
+```{r, message = FALSE, warning = FALSE}
+winequality <- read_csv("https://raw.githubusercontent.com/RZJing5/STAT-436/main/winequality-red.csv") %>%
+  mutate(ID = row_number(),
+         quality = as.character(quality))
+winequality
+```
+```{r}
+winequality %>%
+  pivot_longer(
+    c('fixed acidity', 'volatile acidity', 'citric acid', 'residual sugar', 'chlorides', 
+      'free sulfur dioxide', 'free sulfur dioxide', 'total sulfur dioxide', 
+      'density', 'pH', 'sulphates', 'alcohol'), names_to = "index", values_to = "value") %>%
+  group_by(index) %>%
+  mutate(persentage = round(value/sum(value)*100,2)) %>%
+  ggplot(aes(persentage, index)) +
+    geom_point(aes(col = quality)) +
+    theme(axis.title = element_blank())
+```
+
+
+PCA:
+```{r}
+pca_rec <- recipe(~., data = winequality) %>%
+  update_role(ID, quality, new_role = "id") %>%
+  step_normalize(all_predictors()) %>%
+  step_pca(all_predictors())
+
+pca_prep <- prep(pca_rec)
+```
+
+```{r}
+pca_res <- tidy(pca_prep, 2) %>%
+  filter(component %in% str_c("PC", 1:5)) %>%
+  mutate(terms = reorder_within(terms, abs(value), component))
+```
+```{r}
+ggplot(pca_res, aes(value, terms)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ component, scales = "free_y") +
+  scale_y_reordered() +
+  labs(y = NULL) +
+  theme(axis.text = element_text(size = 7))
+```
+```{r}
+pca_scores <- juice(pca_prep) %>%
+  group_by(quality) %>%
+  summarise(PC1 = mean(PC1), 
+            PC2 = mean(PC2),
+            PC3 = mean(PC3),
+            PC4 = mean(PC4),
+            PC5 = mean(PC5)) %>%
+  pivot_longer(
+    c('PC1', 'PC2', 'PC3', 'PC4', 'PC5'), names_to = "PCA", values_to = "value")
+ggplot(pca_scores, aes(quality, PCA, col = value)) +
+  geom_tile(aes(fill = value), colour = "grey50") +
+  scale_fill_viridis_c(option = "magma") +
+  scale_y_discrete(breaks = 1:6, labels = paste("PC", 3:8)) +
+  coord_polar(theta = "x") +
+  theme_bw() +
+  theme(
+    axis.ticks= element_blank(),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.title = element_blank(),
+  )
+```
+
+
